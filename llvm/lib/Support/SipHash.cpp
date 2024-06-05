@@ -9,8 +9,9 @@
 #include "llvm/Support/Compiler.h"
 #include <cstdint>
 
-// Lightly adapted from the SipHash reference C implementation by
-// Jean-Philippe Aumasson and Daniel J. Bernstein.
+// Lightly adapted from the SipHash reference C implementation:
+//   https://github.com/veorq/SipHash
+// by Jean-Philippe Aumasson and Daniel J. Bernstein
 
 #define ROTL(x, b) (uint64_t)(((x) << (b)) | ((x) >> (64 - (b))))
 
@@ -38,15 +39,26 @@
     v2 = ROTL(v2, 32);                                                         \
   } while (0)
 
+namespace {
+
+/// Computes a SipHash value
+///
+/// \param in: pointer to input data (read-only)
+/// \param inlen: input data length in bytes (any size_t value)
+/// \param k: reference to the key data 16-byte array (read-only)
+/// \returns output data, must be 8 or 16 bytes
+///
 template <int cROUNDS, int dROUNDS, class ResultTy>
-static inline ResultTy siphash(const unsigned char *in, uint64_t inlen,
-                               const unsigned char (&k)[16]) {
+ResultTy siphash(const unsigned char *in, uint64_t inlen,
+                 const unsigned char (&k)[16]) {
 
   const unsigned char *ni = (const unsigned char *)in;
   const unsigned char *kk = (const unsigned char *)k;
 
-  static_assert(sizeof(ResultTy) == 8 || sizeof(ResultTy) == 16,
+  constexpr size_t outlen = sizeof(ResultTy);
+  static_assert(outlen == 8 || outlen == 16,
                 "result type should be uint64_t or uint128_t");
+
   uint64_t v0 = UINT64_C(0x736f6d6570736575);
   uint64_t v1 = UINT64_C(0x646f72616e646f6d);
   uint64_t v2 = UINT64_C(0x6c7967656e657261);
@@ -63,7 +75,7 @@ static inline ResultTy siphash(const unsigned char *in, uint64_t inlen,
   v1 ^= k1;
   v0 ^= k0;
 
-  if (sizeof(ResultTy) == 16)
+  if (outlen == 16)
     v1 ^= 0xee;
 
   for (; ni != end; ni += 8) {
@@ -109,7 +121,7 @@ static inline ResultTy siphash(const unsigned char *in, uint64_t inlen,
 
   v0 ^= b;
 
-  if (sizeof(ResultTy) == 16)
+  if (outlen == 16)
     v2 ^= 0xee;
   else
     v2 ^= 0xff;
@@ -118,9 +130,9 @@ static inline ResultTy siphash(const unsigned char *in, uint64_t inlen,
     SIPROUND;
 
   b = v0 ^ v1 ^ v2 ^ v3;
-
   uint64_t firstHalf = b;
-  if (sizeof(ResultTy) == 8)
+
+  if (outlen == 8)
     return firstHalf;
 
   v1 ^= 0xdd;
@@ -131,5 +143,7 @@ static inline ResultTy siphash(const unsigned char *in, uint64_t inlen,
   b = v0 ^ v1 ^ v2 ^ v3;
   uint64_t secondHalf = b;
 
-  return firstHalf | (ResultTy(secondHalf) << (sizeof(ResultTy) == 8 ? 0 : 64));
+  return firstHalf | (ResultTy(secondHalf) << 64);
 }
+
+} // end anonymous namespace
