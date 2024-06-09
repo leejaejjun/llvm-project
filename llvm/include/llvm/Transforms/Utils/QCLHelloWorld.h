@@ -5,7 +5,7 @@
 #include "llvm/ADT/Statistic.h"
 
 namespace llvm{
-    class QCLHelloWorldPass : public PassInforMixin<QCLHelloWorldPass>{
+    class QCLHelloWorldPass : public PassInfoMixin<QCLHelloWorldPass>{
         public:
             PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
     };
